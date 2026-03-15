@@ -152,8 +152,27 @@ Use the CronCreate tool to schedule the digest at the user's preferred time.
 
 ### Step 8: Welcome Digest
 
-After setup, run an immediate fetch to deliver a "welcome digest" with the most
-recent content. This lets the user see what the digest looks like right away.
+**DO NOT skip this step.** Immediately after setting up the cron job, generate
+and send the user their first digest so they can see what it looks like.
+
+Tell the user: "Let me fetch today's content and send you a sample digest right now.
+This takes about a minute."
+
+Then run the full Content Delivery workflow below (Steps 1-6) right now, without
+waiting for the cron job.
+
+After delivering the digest, ask for feedback:
+
+"That's your first AI Builders Digest! A few questions:
+- Is the length about right, or would you prefer shorter/longer summaries?
+- Is there anything you'd like me to focus on more (or less)?
+- Any builders or podcasts you'd like to add or remove?
+
+Just tell me and I'll adjust. Your next digest will arrive automatically at
+[their chosen time]."
+
+Wait for their response and apply any feedback (update config.json or prompt files
+as needed). Then confirm the changes.
 
 ---
 

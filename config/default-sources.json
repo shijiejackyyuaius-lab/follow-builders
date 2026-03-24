@@ -27,8 +27,44 @@
     {
       "name": "Data Driven NYC",
       "type": "youtube_channel",
-      "url": "https://www.youtube.com/@DataDrivenNYC/videos",
+      "url": "https://www.youtube.com/@DataDrivenNYC",
       "channelHandle": "DataDrivenNYC"
+    },
+    {
+      "name": "AI & I",
+      "type": "youtube_channel",
+      "url": "https://www.youtube.com/@aiandipodcast",
+      "channelHandle": "aiandipodcast"
+    },
+    {
+      "name": "Google DeepMind: The Podcast",
+      "type": "youtube_channel",
+      "url": "https://www.youtube.com/@googledeepmind",
+      "channelHandle": "googledeepmind"
+    },
+    {
+      "name": "The AI Daily Brief",
+      "type": "youtube_channel",
+      "url": "https://www.youtube.com/@AIDailyBrief",
+      "channelHandle": "AIDailyBrief"
+    },
+    {
+      "name": "Lenny's Podcast",
+      "type": "youtube_channel",
+      "url": "https://www.youtube.com/@LennysPodcast",
+      "channelHandle": "LennysPodcast"
+    },
+    {
+      "name": "Behind the Craft",
+      "type": "youtube_channel",
+      "url": "https://www.youtube.com/@behindthecraft",
+      "channelHandle": "behindthecraft"
+    },
+    {
+      "name": "Lightcone Podcast",
+      "type": "youtube_channel",
+      "url": "https://www.youtube.com/@ycombinator",
+      "channelHandle": "ycombinator"
     }
   ],
   "x_accounts": [
@@ -56,6 +92,11 @@
     { "name": "Dan Shipper", "handle": "danshipper" },
     { "name": "Aditya Agarwal", "handle": "adityaag" },
     { "name": "Sam Altman", "handle": "sama" },
-    { "name": "Claude", "handle": "claudeai" }
+    { "name": "Claude", "handle": "claudeai" },
+    { "name": "Greg Isenberg", "handle": "gregisenberg" },
+    { "name": "Lenny Rachitsky", "handle": "lennysan" },
+    { "name": "Mckay Wrigley", "handle": "mckaywrigley" },
+    { "name": "Justine Moore", "handle": "venturetwins" },
+    { "name": "Lulu Cheng Meservey", "handle": "lulumeservey" }
   ]
 }

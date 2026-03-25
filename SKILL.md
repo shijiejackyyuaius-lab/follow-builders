@@ -332,9 +332,27 @@ The script outputs a single JSON blob with everything you need:
 If the script fails entirely (no JSON output), tell the user to check their
 internet connection. Otherwise, use whatever content is in the JSON.
 
+### Step 2.5: Fetch Gmail Newsletters
+
+If `config.newsletters` is set in `~/.follow-builders/config.json`, fetch recent
+newsletter emails from Gmail using the Gmail MCP tools.
+
+For each sender in `config.newsletters`, search Gmail for emails received in the
+last 48 hours:
+- Use search query: `from:<sender> newer_than:2d` (use sender name or email)
+- For each matching message, read its full content
+- Extract: subject, sender name, a snippet or full body (truncate to ~2000 chars if very long)
+- Skip emails that appear to be transactional (receipts, account alerts, etc.)
+
+Collect all newsletter content into a `newsletters` array for use in Step 4.
+If Gmail MCP is unavailable or returns no results, silently continue without newsletters.
+
+**Newsletter senders to search for:**
+Read from `config.newsletters` in `~/.follow-builders/config.json`.
+
 ### Step 3: Check for content
 
-If `stats.podcastEpisodes` is 0 AND `stats.xBuilders` is 0, tell the user:
+If `stats.podcastEpisodes` is 0 AND `stats.xBuilders` is 0 AND newsletters array is empty, tell the user:
 "No new updates from your builders today. Check back tomorrow!" Then stop.
 
 ### Step 4: Remix content
@@ -357,7 +375,14 @@ Read the prompts from the `prompts` field in the JSON:
 1. Summarize its `transcript` using `prompts.summarize_podcast`
 2. Use `name`, `title`, and `url` from the JSON object — NOT from the transcript
 
-Assemble the digest following `prompts.digest_intro`.
+**Newsletters (process third):** If the `newsletters` array from Step 2.5 has content:
+1. Group newsletters by publication name
+2. For each newsletter: write 2-4 sentences summarizing the key argument, insight, or news
+3. Lead with the publication name and author (e.g. "Stratechery's Ben Thompson argues...")
+4. If a newsletter is long, focus on the single most important idea
+5. Skip newsletters that are purely promotional or have no substantive content
+
+Assemble the digest following `prompts.digest_intro`. Section order: X/Twitter → Podcast → Newsletters.
 
 **ABSOLUTE RULES:**
 - NEVER invent or fabricate content. Only use what's in the JSON.

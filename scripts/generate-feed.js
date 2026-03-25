@@ -165,7 +165,7 @@ async function fetchYouTubeContent(podcasts, apiKey, state, errors) {
 
 // -- X/Twitter Fetching (Apify tweet-scraper) --------------------------------
 
-async function fetchXContent(xAccounts, apifyToken, state, errors) {
+async function fetchXContent(xAccounts, apifyToken, state, errors, cookies = {}) {
   const results = [];
   const cutoff = new Date(Date.now() - TWEET_LOOKBACK_HOURS * 60 * 60 * 1000);
 
@@ -186,7 +186,13 @@ async function fetchXContent(xAccounts, apifyToken, state, errors) {
           includeSearchTerms: false,
           onlyImage: false,
           onlyQuote: false,
-          onlyVideo: false
+          onlyVideo: false,
+          ...(cookies.auth_token && {
+            cookies: [
+              { name: 'auth_token', value: cookies.auth_token, domain: '.x.com' },
+              { name: 'ct0', value: cookies.ct0, domain: '.x.com' }
+            ]
+          })
         })
       }
     );
@@ -309,6 +315,10 @@ async function main() {
 
   const apifyToken = process.env.APIFY_TOKEN;
   const supadataKey = process.env.SUPADATA_API_KEY;
+  const xCookies = {
+    auth_token: process.env.X_AUTH_TOKEN,
+    ct0: process.env.X_CT0
+  };
 
   if (!tweetsOnly && !supadataKey) {
     console.error('SUPADATA_API_KEY not set');
@@ -327,7 +337,7 @@ async function main() {
   let xContent = [];
   if (!podcastsOnly) {
     console.error('Fetching X/Twitter content...');
-    xContent = await fetchXContent(sources.x_accounts, apifyToken, state, errors);
+    xContent = await fetchXContent(sources.x_accounts, apifyToken, state, errors, xCookies);
     console.error(`  Found ${xContent.length} builders with new tweets`);
 
     const totalTweets = xContent.reduce((sum, a) => sum + a.tweets.length, 0);

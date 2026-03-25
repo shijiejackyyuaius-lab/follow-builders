@@ -36,6 +36,8 @@ jobs:
         env:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
           SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}
+          X_AUTH_TOKEN: ${{ secrets.X_AUTH_TOKEN }}
+          X_CT0: ${{ secrets.X_CT0 }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.mode }}" != "all" ]; then
             cd scripts && node generate-feed.js --${{ inputs.mode }}

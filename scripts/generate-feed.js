@@ -187,6 +187,10 @@ async function fetchXContent(xAccounts, apifyToken, state, errors, cookies = {})
           onlyImage: false,
           onlyQuote: false,
           onlyVideo: false,
+          proxyConfiguration: {
+            useApifyProxy: true,
+            apifyProxyGroups: ['RESIDENTIAL']
+          },
           ...(cookies.auth_token && {
             cookies: [
               { name: 'auth_token', value: cookies.auth_token, domain: '.x.com' },

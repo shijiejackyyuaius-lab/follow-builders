@@ -170,7 +170,7 @@ async function fetchXContent(xAccounts, apifyToken, state, errors) {
   const cutoff = new Date(Date.now() - TWEET_LOOKBACK_HOURS * 60 * 60 * 1000);
 
   // Start Apify run — scrape all profile pages in one batch
-  const startUrls = xAccounts.map(a => ({ url: `https://twitter.com/${a.handle}` }));
+  const startUrls = xAccounts.map(a => ({ url: `https://x.com/${a.handle}` }));
 
   let runId;
   try {
@@ -200,9 +200,10 @@ async function fetchXContent(xAccounts, apifyToken, state, errors) {
     const runData = await runRes.json();
     runId = runData.data?.id;
     if (!runId) {
-      errors.push('Apify: No run ID returned');
+      errors.push(`Apify: No run ID returned. Response: ${JSON.stringify(runData).slice(0, 200)}`);
       return results;
     }
+    console.error(`  Apify run started: ${runId}`);
   } catch (err) {
     errors.push(`Apify: Error starting run: ${err.message}`);
     return results;
@@ -219,6 +220,7 @@ async function fetchXContent(xAccounts, apifyToken, state, errors) {
       );
       const statusData = await statusRes.json();
       status = statusData.data?.status || 'FAILED';
+    console.error(`  Apify run status: ${status}`);
     } catch (err) {
       errors.push(`Apify: Error polling run status: ${err.message}`);
       break;
@@ -241,6 +243,8 @@ async function fetchXContent(xAccounts, apifyToken, state, errors) {
       return results;
     }
     items = await itemsRes.json();
+    console.error(`  Apify dataset: ${items.length} items`);
+    if (items.length > 0) console.error(`  Sample item keys: ${Object.keys(items[0]).join(', ')}`);
   } catch (err) {
     errors.push(`Apify: Error fetching dataset: ${err.message}`);
     return results;

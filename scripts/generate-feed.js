@@ -163,111 +163,134 @@ async function fetchYouTubeContent(podcasts, apiKey, state, errors) {
   }
 }
 
-// -- X/Twitter Fetching (Official API v2) ------------------------------------
+// -- X/Twitter Fetching (Apify tweet-scraper) --------------------------------
 
-async function fetchXContent(xAccounts, bearerToken, state, errors) {
+async function fetchXContent(xAccounts, apifyToken, state, errors) {
   const results = [];
   const cutoff = new Date(Date.now() - TWEET_LOOKBACK_HOURS * 60 * 60 * 1000);
 
-  // Batch lookup all user IDs (1 API call)
-  const handles = xAccounts.map(a => a.handle);
-  let userMap = {};
+  // Start Apify run — scrape all profile pages in one batch
+  const startUrls = xAccounts.map(a => ({ url: `https://twitter.com/${a.handle}` }));
 
-  for (let i = 0; i < handles.length; i += 100) {
-    const batch = handles.slice(i, i + 100);
+  let runId;
+  try {
+    const runRes = await fetch(
+      `https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs?token=${apifyToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startUrls,
+          maxItems: xAccounts.length * 5,
+          sort: 'Latest',
+          includeSearchTerms: false,
+          onlyImage: false,
+          onlyQuote: false,
+          onlyVideo: false
+        })
+      }
+    );
+
+    if (!runRes.ok) {
+      const body = await runRes.text();
+      errors.push(`Apify: Failed to start run: HTTP ${runRes.status} — ${body}`);
+      return results;
+    }
+
+    const runData = await runRes.json();
+    runId = runData.data?.id;
+    if (!runId) {
+      errors.push('Apify: No run ID returned');
+      return results;
+    }
+  } catch (err) {
+    errors.push(`Apify: Error starting run: ${err.message}`);
+    return results;
+  }
+
+  // Poll until the run finishes (max 5 min)
+  let status = 'RUNNING';
+  const deadline = Date.now() + 5 * 60 * 1000;
+  while ((status === 'RUNNING' || status === 'READY') && Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 6000));
     try {
-      const res = await fetch(
-        `${X_API_BASE}/users/by?usernames=${batch.join(',')}&user.fields=name,description`,
-        { headers: { 'Authorization': `Bearer ${bearerToken}` } }
+      const statusRes = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
       );
-
-      if (!res.ok) {
-        errors.push(`X API: User lookup failed: HTTP ${res.status}`);
-        continue;
-      }
-
-      const data = await res.json();
-      for (const user of (data.data || [])) {
-        userMap[user.username.toLowerCase()] = {
-          id: user.id,
-          name: user.name,
-          description: user.description || ''
-        };
-      }
-      if (data.errors) {
-        for (const err of data.errors) {
-          errors.push(`X API: User not found: ${err.value || err.detail}`);
-        }
-      }
+      const statusData = await statusRes.json();
+      status = statusData.data?.status || 'FAILED';
     } catch (err) {
-      errors.push(`X API: User lookup error: ${err.message}`);
+      errors.push(`Apify: Error polling run status: ${err.message}`);
+      break;
     }
   }
 
-  // Fetch recent tweets per user (max 3, exclude retweets/replies)
+  if (status !== 'SUCCEEDED') {
+    errors.push(`Apify: Run ended with status ${status}`);
+    return results;
+  }
+
+  // Fetch scraped items
+  let items = [];
+  try {
+    const itemsRes = await fetch(
+      `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apifyToken}`
+    );
+    if (!itemsRes.ok) {
+      errors.push(`Apify: Failed to fetch dataset: HTTP ${itemsRes.status}`);
+      return results;
+    }
+    items = await itemsRes.json();
+  } catch (err) {
+    errors.push(`Apify: Error fetching dataset: ${err.message}`);
+    return results;
+  }
+
+  // Group tweets by author handle
+  const byHandle = {};
+  for (const tweet of items) {
+    const handle = (tweet.author?.userName || tweet.author?.username || '').toLowerCase();
+    if (!handle) continue;
+    if (!byHandle[handle]) byHandle[handle] = [];
+    byHandle[handle].push(tweet);
+  }
+
+  // Process each account
   for (const account of xAccounts) {
-    const userData = userMap[account.handle.toLowerCase()];
-    if (!userData) continue;
+    const tweets = byHandle[account.handle.toLowerCase()] || [];
+    const newTweets = [];
 
-    try {
-      const res = await fetch(
-        `${X_API_BASE}/users/${userData.id}/tweets?` +
-        `max_results=5` +       // fetch 5, then filter to 3 new ones
-        `&tweet.fields=created_at,public_metrics,referenced_tweets,note_tweet` +
-        `&exclude=retweets,replies` +
-        `&start_time=${cutoff.toISOString()}`,
-        { headers: { 'Authorization': `Bearer ${bearerToken}` } }
-      );
+    for (const t of tweets) {
+      if (state.seenTweets[t.id]) continue;
+      if (t.isRetweet || t.isReply) continue;
+      const createdAt = new Date(t.createdAt || t.created_at);
+      if (createdAt < cutoff) continue;
+      if (newTweets.length >= MAX_TWEETS_PER_USER) break;
 
-      if (!res.ok) {
-        if (res.status === 429) {
-          errors.push(`X API: Rate limited, skipping remaining accounts`);
-          break;
-        }
-        errors.push(`X API: Failed to fetch tweets for @${account.handle}: HTTP ${res.status}`);
-        continue;
-      }
-
-      const data = await res.json();
-      const allTweets = data.data || [];
-
-      // Filter out already-seen tweets, cap at 3
-      const newTweets = [];
-      for (const t of allTweets) {
-        if (state.seenTweets[t.id]) continue; // dedup
-        if (newTweets.length >= MAX_TWEETS_PER_USER) break;
-
-        newTweets.push({
-          id: t.id,
-          // note_tweet.text has the full untruncated text for long tweets (>280 chars)
-          text: t.note_tweet?.text || t.text,
-          createdAt: t.created_at,
-          url: `https://x.com/${account.handle}/status/${t.id}`,
-          likes: t.public_metrics?.like_count || 0,
-          retweets: t.public_metrics?.retweet_count || 0,
-          replies: t.public_metrics?.reply_count || 0,
-          isQuote: t.referenced_tweets?.some(r => r.type === 'quoted') || false,
-          quotedTweetId: t.referenced_tweets?.find(r => r.type === 'quoted')?.id || null
-        });
-
-        // Mark as seen
-        state.seenTweets[t.id] = Date.now();
-      }
-
-      if (newTweets.length === 0) continue;
-
-      results.push({
-        source: 'x',
-        name: account.name,
-        handle: account.handle,
-        bio: userData.description,
-        tweets: newTweets
+      newTweets.push({
+        id: t.id,
+        text: t.fullText || t.text || '',
+        createdAt: t.createdAt || t.created_at,
+        url: t.url || `https://x.com/${account.handle}/status/${t.id}`,
+        likes: t.likeCount || t.favoriteCount || 0,
+        retweets: t.retweetCount || 0,
+        replies: t.replyCount || 0,
+        isQuote: t.isQuote || false,
+        quotedTweetId: t.quotedTweet?.id || null
       });
 
-      await new Promise(r => setTimeout(r, 200));
-    } catch (err) {
-      errors.push(`X API: Error fetching @${account.handle}: ${err.message}`);
+      state.seenTweets[t.id] = Date.now();
     }
+
+    if (newTweets.length === 0) continue;
+
+    results.push({
+      source: 'x',
+      name: account.name,
+      handle: account.handle,
+      bio: tweets[0]?.author?.description || '',
+      tweets: newTweets
+    });
   }
 
   return results;
@@ -280,15 +303,15 @@ async function main() {
   const tweetsOnly = args.includes('--tweets-only');
   const podcastsOnly = args.includes('--podcasts-only');
 
-  const xBearerToken = process.env.X_BEARER_TOKEN;
+  const apifyToken = process.env.APIFY_TOKEN;
   const supadataKey = process.env.SUPADATA_API_KEY;
 
   if (!tweetsOnly && !supadataKey) {
     console.error('SUPADATA_API_KEY not set');
     process.exit(1);
   }
-  if (!podcastsOnly && !xBearerToken) {
-    console.error('X_BEARER_TOKEN not set');
+  if (!podcastsOnly && !apifyToken) {
+    console.error('APIFY_TOKEN not set');
     process.exit(1);
   }
 
@@ -300,7 +323,7 @@ async function main() {
   let xContent = [];
   if (!podcastsOnly) {
     console.error('Fetching X/Twitter content...');
-    xContent = await fetchXContent(sources.x_accounts, xBearerToken, state, errors);
+    xContent = await fetchXContent(sources.x_accounts, apifyToken, state, errors);
     console.error(`  Found ${xContent.length} builders with new tweets`);
 
     const totalTweets = xContent.reduce((sum, a) => sum + a.tweets.length, 0);

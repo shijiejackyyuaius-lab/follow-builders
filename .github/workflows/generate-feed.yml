@@ -1,9 +1,7 @@
 name: Generate Feeds
 
 on:
-  schedule:
-    # Both tweets and podcasts: once daily at 2am UTC (10am CST), so feed is ready before 11am digest
-    - cron: '0 2 * * *'
+  # Schedule disabled — feed is now read from zarazhangrui/follow-builders (original repo)
   workflow_dispatch:
     inputs:
       mode:

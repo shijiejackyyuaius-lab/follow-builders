@@ -1,5 +1,5 @@
 ---
-name: follow-builders
+name: ai
 description: AI builders digest — monitors top AI builders on X and YouTube podcasts, remixes their content into digestible summaries. Use when the user wants AI industry insights, builder updates, or invokes /ai. No API keys or dependencies required — all content is fetched from a central feed.
 ---
 
@@ -407,10 +407,33 @@ to have 5 excellent items than 10 mediocre ones.
 3. Only include if the episode topic passes curation rules
 
 **Newsletters (process third):** If the `newsletters` array from Step 2.5 has content:
-1. Apply curation rules first — skip entire newsletters that don't qualify
-2. For qualifying newsletters: write 2–3 sentences on the single most important idea
+
+Some newsletters are **collection-style** — each issue is a curated list of multiple
+independent stories. For these, do NOT summarize the newsletter as a whole. Instead,
+treat each story item within the newsletter as a separate candidate and evaluate
+each one individually against the curation rules.
+
+**Collection-style newsletters (dig into individual items):**
+- AINews (`swyx+ainews@substack.com`) — each issue links to multiple AI news stories
+- AiNews.com / Alicia Shapiro (`Alicia@ainews.com`) — each issue is a headlines list
+- The Rundown AI (`news@daily.therundown.ai`) — each issue covers 3–5 distinct stories
+
+For collection-style newsletters:
+1. Parse out each individual story/item from the email body
+2. Evaluate each item against curation rules independently
+3. Only surface items that pass — treat them as standalone digest entries
+4. Attribute as the original source if clear, otherwise attribute to the newsletter
+
+**Editorial newsletters** (one main argument per issue — summarize as a whole):
+- Stratechery, Platformer, The Pragmatic Engineer, Latent Space, Benedict Evans,
+  Lenny's Newsletter, SemiAnalysis, Tomasz Tunguz, a16z, Ben's Bites, AI Valley
+
+For editorial newsletters:
+1. Apply curation rules — skip if the issue topic doesn't qualify
+2. Write 2–3 sentences on the single most important idea
 3. Lead with publication and author (e.g. "Stratechery's Ben Thompson argues...")
-4. Merge duplicates across newsletters into one entry
+
+Merge duplicates across all newsletter types into one entry.
 
 Assemble the digest following `prompts.digest_intro`. Section order: X/Twitter → Podcast → Newsletters.
 

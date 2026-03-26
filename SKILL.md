@@ -334,21 +334,20 @@ internet connection. Otherwise, use whatever content is in the JSON.
 
 ### Step 2.5: Fetch Gmail Newsletters
 
-If `config.newsletters` is set in `~/.follow-builders/config.json`, fetch recent
-newsletter emails from Gmail using the Gmail MCP tools.
+If `config.newsletter_sources` is set in `~/.follow-builders/config.json`, fetch
+recent newsletter emails from Gmail using the Gmail MCP tools.
 
-For each sender in `config.newsletters`, search Gmail for emails received in the
-last 48 hours:
-- Use search query: `from:<sender> newer_than:2d` (use sender name or email)
+For each source in `config.newsletter_sources`:
+- Use search query: `from:<source.from> newer_than:1d`
 - For each matching message, read its full content
-- Extract: subject, sender name, a snippet or full body (truncate to ~2000 chars if very long)
-- Skip emails that appear to be transactional (receipts, account alerts, etc.)
+- Extract: subject, publication name, and body (truncate to ~3000 chars if very long)
+- Skip emails that are transactional: OTP codes, "your access code", receipts, account alerts, unsubscribe confirmations
+
+To avoid redundancy: if 3+ newsletters share the same top story (e.g. all report the
+same model release), note the overlap — it will be merged into one item in Step 4.
 
 Collect all newsletter content into a `newsletters` array for use in Step 4.
 If Gmail MCP is unavailable or returns no results, silently continue without newsletters.
-
-**Newsletter senders to search for:**
-Read from `config.newsletters` in `~/.follow-builders/config.json`.
 
 ### Step 3: Check for content
 
@@ -366,21 +365,52 @@ Read the prompts from the `prompts` field in the JSON:
 - `prompts.summarize_tweets` — how to remix tweets
 - `prompts.translate` — how to translate to Chinese
 
+---
+
+**CURATION RULES — apply before writing anything:**
+
+You are curating for a strategy analyst at Tencent/WeChat (covering e-commerce,
+search, mini-programs) who is a heavy AI user. Deliver a **5–7 item digest**
+they can read in 3 minutes. Cut everything else.
+
+**High priority — always include if present:**
+- AI model releases, capability breakthroughs, or architectural shifts
+- New developer tools, coding assistants, agents, or infra changes
+- China AI market developments (MiniMax, Kimi, DeepSeek, Baidu, Alibaba, etc.)
+- Hands-on takes on AI productivity tools from credible practitioners
+- Product strategy shifts for AI-native apps
+
+**Always skip — no exceptions:**
+- Funding rounds, valuations, M&A news (unless the deal reveals a major strategic shift)
+- Founder/personal advice, career content, productivity tips for individuals
+- General tech news with no AI angle (e.g. robotaxi deals, deep-sea luxury)
+- Purely promotional content or "here's how to subscribe" emails
+
+**Deduplication:** If 2+ sources cover the same story (e.g. multiple newsletters
+all report the same model launch), merge into ONE entry. Use the version with the
+most technical depth or original insight. Do NOT repeat the same news.
+
+Select the **5–7 highest-signal items** from all sources combined. It is better
+to have 5 excellent items than 10 mediocre ones.
+
+---
+
 **Tweets (process first):** The `x` array has builders with tweets. Process one at a time:
 1. Use their `bio` field for their role (e.g. bio says "ceo @box" → "Box CEO Aaron Levie")
 2. Summarize their `tweets` using `prompts.summarize_tweets`
 3. Every tweet MUST include its `url` from the JSON
+4. Apply curation rules — skip low-signal tweets
 
 **Podcast (process second):** The `podcasts` array has at most 1 episode. If present:
 1. Summarize its `transcript` using `prompts.summarize_podcast`
 2. Use `name`, `title`, and `url` from the JSON object — NOT from the transcript
+3. Only include if the episode topic passes curation rules
 
 **Newsletters (process third):** If the `newsletters` array from Step 2.5 has content:
-1. Group newsletters by publication name
-2. For each newsletter: write 2-4 sentences summarizing the key argument, insight, or news
-3. Lead with the publication name and author (e.g. "Stratechery's Ben Thompson argues...")
-4. If a newsletter is long, focus on the single most important idea
-5. Skip newsletters that are purely promotional or have no substantive content
+1. Apply curation rules first — skip entire newsletters that don't qualify
+2. For qualifying newsletters: write 2–3 sentences on the single most important idea
+3. Lead with publication and author (e.g. "Stratechery's Ben Thompson argues...")
+4. Merge duplicates across newsletters into one entry
 
 Assemble the digest following `prompts.digest_intro`. Section order: X/Twitter → Podcast → Newsletters.
 

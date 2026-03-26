@@ -2,8 +2,8 @@ name: Generate Feeds
 
 on:
   schedule:
-    # Both tweets and podcasts: once daily at 6am UTC
-    - cron: '0 6 * * *'
+    # Both tweets and podcasts: once daily at 2am UTC (10am CST), so feed is ready before 11am digest
+    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       mode:
